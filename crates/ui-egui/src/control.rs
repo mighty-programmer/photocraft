@@ -74,7 +74,7 @@ pub enum Outcome {
 /// field's value is validated before the first one is applied, so a typo, an unknown field, a
 /// bad value or a bad nested key can't reply with success while nothing — or only half of it —
 /// changed (#412).
-pub const UI_SET_FIELDS: [&str; 24] = [
+pub const UI_SET_FIELDS: [&str; 25] = [
     "tool",
     "panels",
     "dock",
@@ -99,6 +99,7 @@ pub const UI_SET_FIELDS: [&str; 24] = [
     "gradientClassic",
     "contextualTaskbar",
     "chatgptAccount",
+    "generative",
 ];
 
 /// Most clicks one `ui.click` may queue (#982). Each click is a press and a release that the app
@@ -315,6 +316,13 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
             } else {
                 None
             };
+            let generative = match p.get("generative") {
+                Some(value) => match app.ui.generative.patched(value) {
+                    Ok(state) => Some(state),
+                    Err(error) => return err(error),
+                },
+                None => None,
+            };
             let gradient_blend = if let Some(value) = p.get("gradientBlendMode") {
                 let Some(name) = value.as_str() else { return err("gradientBlendMode must be a blend mode name") };
                 let Some(mode) = photocraft_engine::commands::blend_from_str(name).filter(|m| photocraft_color::BlendMode::LAYER_MODES.contains(m)) else {
@@ -408,6 +416,9 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 };
 
                 // Apply (nothing below can fail).
+                if let Some(state) = generative {
+                    app.ui.generative = state;
+                }
                 if let Some(bar) = taskbar {
                     app.ui.contextual_taskbar = bar;
                 }
@@ -797,6 +808,7 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
         "tool": app.ui.tool,
         "contextualTaskbar": app.ui.contextual_taskbar,
         "chatgptAccountOpen": app.ui.chatgpt_account_open,
+        "generative": app.ui.generative,
         "chatgpt": app.session.chatgpt_status(),
         "toolOptions": app.ui.tool_options,
         "magnetic": app.ui.magnetic,
@@ -998,6 +1010,24 @@ mod tests {
         assert_eq!(call(&mut app, &ctx, "ui.set", json!({"contextualTaskbar":{"position":null},"chatgptAccount":true}))["ok"], true);
         assert!(app.ui.chatgpt_account_open);
         assert!(app.ui.contextual_taskbar.position.is_none());
+    }
+
+    #[test]
+    fn generative_controls_are_local_and_invalid_patches_change_nothing() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        let before = app.ui.clone();
+        for bad in [json!({"width":0}), json!({"operation":"wrong"}), json!({"prompt":true}), json!({"endpoint":"https://example.invalid"})] {
+            assert_eq!(call(&mut app, &ctx, "ui.set", json!({"tool":"move","generative":bad}))["ok"], false);
+            assert_eq!(app.ui, before);
+        }
+        assert_eq!(
+            call(&mut app, &ctx, "ui.set", json!({"generative":{"open":true,"operation":"generate","prompt":"A blue bicycle","width":1024,"height":768}}))["ok"],
+            true
+        );
+        assert_eq!(call(&mut app, &ctx, "ui.inspect", json!({}))["result"]["generative"]["open"], true);
+        assert_eq!(call(&mut app, &ctx, "engine.execute", json!({"command":"generative.run"}))["ok"], false);
+        assert!(app.session.active().is_none());
     }
 
     #[test]

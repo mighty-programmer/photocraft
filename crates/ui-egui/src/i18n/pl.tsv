@@ -19,6 +19,11 @@
 # Zapisz jako…), sentence case as in the English source. Quotes: „…”.
 
 # Optional local selection models and native window setting.
+# Coming-soon generative actions
+	Contextual Task Bar	Kontekstowy pasek zadań
+	ChatGPT Account…	Konto ChatGPT…
+	Generative AI…	Generatywna AI…
+
 	Subject / background removal	Temat / usuwanie tła
 	Object selection	Zaznaczanie obiektów
 	Classical (built in)	Metoda klasyczna (wbudowana)
