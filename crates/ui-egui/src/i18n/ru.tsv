@@ -20,6 +20,10 @@
 # Menus
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	Контекстная панель задач
+	ChatGPT Account…	Учётная запись ChatGPT…
+
 	Subject / background removal	Выделение объекта / удаление фона
 	Object selection	Выделение объектов
 	Classical (built in)	Классический метод (встроенный)

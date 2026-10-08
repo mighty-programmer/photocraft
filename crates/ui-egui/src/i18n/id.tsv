@@ -13,6 +13,10 @@
 # letters; the trailing "…" of dialog commands is kept.
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	Bilah tugas kontekstual
+	ChatGPT Account…	Akun ChatGPT…
+
 	Subject / background removal	Subjek / penghapusan latar belakang
 	Object selection	Seleksi objek
 	Classical (built in)	Metode klasik (bawaan)

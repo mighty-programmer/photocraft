@@ -74,7 +74,7 @@ pub enum Outcome {
 /// field's value is validated before the first one is applied, so a typo, an unknown field, a
 /// bad value or a bad nested key can't reply with success while nothing — or only half of it —
 /// changed (#412).
-pub const UI_SET_FIELDS: [&str; 22] = [
+pub const UI_SET_FIELDS: [&str; 24] = [
     "tool",
     "panels",
     "dock",
@@ -97,6 +97,8 @@ pub const UI_SET_FIELDS: [&str; 22] = [
     "brushSize",
     "gradientBlendMode",
     "gradientClassic",
+    "contextualTaskbar",
+    "chatgptAccount",
 ];
 
 /// Most clicks one `ui.click` may queue (#982). Each click is a press and a release that the app
@@ -280,6 +282,39 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
             if let Some(field) = p.as_object().and_then(|o| o.keys().find(|k| !UI_SET_FIELDS.contains(&k.as_str()))) {
                 return err(format!("unknown field `{field}` (fields: {})", UI_SET_FIELDS.join(", ")));
             }
+            let taskbar = if let Some(value) = p.get("contextualTaskbar") {
+                let Some(fields) = value.as_object() else { return err("contextualTaskbar must be an object") };
+                if fields.keys().any(|k| k != "visible" && k != "position") {
+                    return err("contextualTaskbar accepts visible and position only");
+                }
+                let mut state = app.ui.contextual_taskbar.clone();
+                if let Some(v) = fields.get("visible") {
+                    let Some(visible) = v.as_bool() else { return err("contextualTaskbar.visible must be a boolean") };
+                    state.visible = visible;
+                }
+                if let Some(v) = fields.get("position") {
+                    if v.is_null() {
+                        state.position = None;
+                    } else {
+                        let Ok(point) = serde_json::from_value::<[f32; 2]>(v.clone()) else {
+                            return err("contextualTaskbar.position must be null or two finite coordinates from 0 to 1");
+                        };
+                        if point.iter().any(|n| !n.is_finite() || !(0.0..=1.0).contains(n)) {
+                            return err("contextualTaskbar.position coordinates must be from 0 to 1");
+                        }
+                        state.position = Some(point);
+                    }
+                }
+                Some(state)
+            } else {
+                None
+            };
+            let account_open = if let Some(value) = p.get("chatgptAccount") {
+                let Some(open) = value.as_bool() else { return err("chatgptAccount must be a boolean") };
+                Some(open)
+            } else {
+                None
+            };
             let gradient_blend = if let Some(value) = p.get("gradientBlendMode") {
                 let Some(name) = value.as_str() else { return err("gradientBlendMode must be a blend mode name") };
                 let Some(mode) = photocraft_engine::commands::blend_from_str(name).filter(|m| photocraft_color::BlendMode::LAYER_MODES.contains(m)) else {
@@ -373,6 +408,12 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 };
 
                 // Apply (nothing below can fail).
+                if let Some(bar) = taskbar {
+                    app.ui.contextual_taskbar = bar;
+                }
+                if let Some(open) = account_open {
+                    app.ui.chatgpt_account_open = open;
+                }
                 if let Some(t) = tool {
                     app.ui.tool = t;
                 }
@@ -754,6 +795,9 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
     json!({
         "window": {"width": screen.width(), "height": screen.height(), "pixelsPerPoint": ctx.pixels_per_point()},
         "tool": app.ui.tool,
+        "contextualTaskbar": app.ui.contextual_taskbar,
+        "chatgptAccountOpen": app.ui.chatgpt_account_open,
+        "chatgpt": app.session.chatgpt_status(),
         "toolOptions": app.ui.tool_options,
         "magnetic": app.ui.magnetic,
         "textEdit": app.ui.text_edit,
@@ -936,6 +980,24 @@ mod tests {
         let r = call(&mut app, &ctx, "ui.menu.invoke", json!({"id": "filter.blur.gaussianBlur"}));
         assert!(r.to_string().contains("dialog"), "ui.menu.invoke should open the dialog: {r}");
         assert_eq!(app.session.active().unwrap().revision, rev, "opening a dialog must not edit the document");
+    }
+
+    #[test]
+    fn contextual_bar_control_rejects_bad_positions_and_can_restore_hidden_actions() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        assert_eq!(call(&mut app, &ctx, "ui.set", json!({"contextualTaskbar":{"visible":false,"position":[0.2,0.8]}}))["ok"], true);
+        assert!(!app.ui.contextual_taskbar.visible);
+        let before = app.ui.contextual_taskbar.clone();
+        for bad in [json!({"position":[-1,0]}), json!({"position":[0,2]}), json!({"position":[0]}), json!({"visible":"yes"}), json!({"prompt":"x"})] {
+            assert_eq!(call(&mut app, &ctx, "ui.set", json!({"contextualTaskbar":bad}))["ok"], false);
+            assert_eq!(app.ui.contextual_taskbar, before);
+        }
+        crate::menus::invoke(&mut app, &ctx, "window.contextualTaskbar", json!({})).unwrap();
+        assert!(app.ui.contextual_taskbar.visible);
+        assert_eq!(call(&mut app, &ctx, "ui.set", json!({"contextualTaskbar":{"position":null},"chatgptAccount":true}))["ok"], true);
+        assert!(app.ui.chatgpt_account_open);
+        assert!(app.ui.contextual_taskbar.position.is_none());
     }
 
     #[test]

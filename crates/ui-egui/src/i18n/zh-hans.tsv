@@ -12,6 +12,10 @@
 # Product and technology names retain their spelling. See docs/localization-zh-hans.md.
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	上下文任务栏
+	ChatGPT Account…	ChatGPT 帐户…
+
 	Subject / background removal	主体选择 / 移除背景
 	Object selection	对象选择
 	Classical (built in)	传统方法（内置）

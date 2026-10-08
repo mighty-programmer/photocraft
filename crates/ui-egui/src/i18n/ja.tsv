@@ -16,6 +16,10 @@
 # letters; the trailing "…" of dialog commands is kept.
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	コンテキストタスクバー
+	ChatGPT Account…	ChatGPT アカウント…
+
 	Subject / background removal	被写体選択 / 背景の削除
 	Object selection	オブジェクト選択
 	Classical (built in)	従来の方法（内蔵）

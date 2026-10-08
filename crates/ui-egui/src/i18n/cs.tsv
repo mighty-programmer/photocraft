@@ -20,6 +20,10 @@
 # dialog commands is kept.
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	Kontextový panel úloh
+	ChatGPT Account…	Účet ChatGPT…
+
 	Subject / background removal	Výběr subjektu / odstranění pozadí
 	Object selection	Výběr objektu
 	Classical (built in)	Klasická metoda (vestavěná)

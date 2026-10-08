@@ -16,6 +16,10 @@
 # letters; the trailing "…" of dialog commands is kept. Plural rule: one|other (n != 1 -> other).
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	Kontextbezogene Taskleiste
+	ChatGPT Account…	ChatGPT-Konto…
+
 	Subject / background removal	Motiv / Hintergrund entfernen
 	Object selection	Objektauswahl
 	Classical (built in)	Klassische Methode (integriert)

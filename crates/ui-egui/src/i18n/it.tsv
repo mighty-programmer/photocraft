@@ -13,6 +13,10 @@
 # letters; the trailing … of dialog commands is kept.
 
 # Optional local selection models.
+# Contextual viewport actions and optional account settings
+	Contextual Task Bar	Barra delle attività contestuale
+	ChatGPT Account…	Account ChatGPT…
+
 	Subject / background removal	Soggetto / rimozione dello sfondo
 	Object selection	Selezione oggetti
 	Classical (built in)	Metodo classico (integrato)
