@@ -65,6 +65,8 @@ jobs:
         run: cargo test -p photocraft-chatgpt --features native --locked
       - name: Test commands and automation isolation
         run: cargo test -p photocraft-engine -p photocraft-automation --features photocraft-engine/chatgpt --locked
+      - name: Test shared UI validation
+        run: cargo test -p photocraft-ui-egui --features photocraft-engine/chatgpt --locked control::tests
       - name: Check native app with optional sign-in
         run: cargo check -p photocraft -p photocraft-ui-egui --features photocraft/chatgpt --locked
       - name: Clippy optional sign-in
