@@ -4123,6 +4123,7 @@ dependencies = [
  "arboard",
  "async-io",
  "core-graphics2",
+ "dispatch2",
  "eframe",
  "egui",
  "fmv-macos-events",
