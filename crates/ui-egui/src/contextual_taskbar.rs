@@ -35,7 +35,7 @@ fn normalized(viewport: Rect, size: Vec2, at: Pos2) -> [f32; 2] {
 }
 
 pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
-    if !app.ui.contextual_taskbar.visible || app.ui.view.hides_chrome() || app.jobs.focus.is_some() || app.ui.generative.open {
+    if !app.ui.contextual_taskbar.visible || app.ui.view.hides_chrome() || app.jobs.focus.is_some() || app.ui.generative.open || !app.ui.dialogs.is_empty() {
         return;
     }
     let Some(st) = app.session.active() else { return };
@@ -137,6 +137,29 @@ mod tests {
         assert_eq!(normalized(viewport, size, pos2(-400.0, 600.0)), [0.0, 1.0]);
         let smaller = Rect::from_min_size(pos2(20.0, 30.0), vec2(180.0, 70.0));
         assert!(smaller.contains_rect(Rect::from_min_size(position(smaller, size, Some([1.0, 1.0])), size)));
+    }
+
+    #[test]
+    fn modal_rotation_hides_actions_and_cancel_restores_them_without_an_edit() {
+        let mut session = photocraft_engine::Session::new();
+        session.execute("file.new", json!({"width":400,"height":300})).unwrap();
+        let mut h = Harness::builder().with_size(vec2(1200.0, 800.0)).with_max_steps(64).build_eframe(move |cc| {
+            PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());
+            PhotocraftApp::new(session, crate::Services::default())
+        });
+        h.run_steps(8);
+        assert!(h.query_by_label("Drag contextual task bar").is_some());
+        let revision = h.state().session.active().unwrap().revision;
+        let ctx = h.ctx.clone();
+        let opened = menus::invoke(h.state_mut(), &ctx, "image.rotation.arbitrary", json!({})).unwrap();
+        let id = opened["dialog"].as_u64().unwrap();
+        h.run_steps(8);
+        assert!(h.query_by_label("Drag contextual task bar").is_none(), "modal previews must have an unobstructed canvas");
+        assert!(h.query_by_label("Remove Background").is_none());
+        h.state_mut().ui.close_dialog(id).unwrap();
+        h.run_steps(8);
+        assert!(h.query_by_label("Drag contextual task bar").is_some());
+        assert_eq!(h.state().session.active().unwrap().revision, revision);
     }
 
     #[test]

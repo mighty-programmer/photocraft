@@ -5,11 +5,17 @@ the optional local-model contribution (#1199). Generative operations remain
 disabled, including for connected accounts. This is account integration and
 local draft UX, with no image-generation quality or Photoshop AI parity claim.
 
+The integration now includes upstream `2515fa7cee624cf232c873ba283aa0359ec159d7` and
+the refreshed optional-model pack. Upstream Rotate View, per-tool brushes, Linux display-server
+selection, macOS quit handling, mask-cache updates, translations and contributor entries are
+retained. Greek includes the new menu actions. The task-bar/account/draft additions preserve
+upstream's validation-before-mutation rule, and the MCP description lists every accepted field.
+
 ## Local automated checks
 
 The full native engine, UI, automation, CLI, ML and ChatGPT suites pass with
 optional native authentication and CPU model features enabled. Engine unit tests
-report 848 passed / 11 ignored; UI unit tests report 923 passed / 3 ignored.
+report 951 passed / 11 ignored; UI unit tests report 1,122 passed / 7 ignored.
 Ignored opt-in tests are not included as passes. Integration tests cover the
 existing editor workflows as well as the new behavior.
 
@@ -26,6 +32,12 @@ Relevant new regression checks cover:
 - A connected simulated ChatGPT account cannot enable generation. Direct
   execution and nested automation cannot bypass the coming-soon gate or begin
   private account operations.
+- Mixed `ui.set` calls apply all fields or none: invalid existing controls reject valid
+  task-bar/account/draft updates, and invalid new controls reject valid existing updates.
+- Modal image dialogs hide the task bar, keeping rotation previews unobstructed; closing them
+  restores actions without an edit. The upstream GPU rotation, checker/grid, 16/32-bit canvas
+  and other rendering tests pass. The checker fixture hides the floating bar while measuring
+  raw canvas pixels; its original pixel expectations are unchanged.
 - Native OAuth tests use ephemeral signing keys, real loopback HTTP callbacks
   and simulated browser/token transport. They exercise registration, PKCE,
   verified returning accounts, identity/signature/nonce/time rejection,
@@ -39,13 +51,15 @@ pass. The full L0–L6 wasm check and the additional optional-feature engine was
 check pass; native OAuth and ONNX Runtime stay outside the web dependency graph.
 
 The native release build uses `local-ml,chatgpt,heif`. Live OpenAI authorization,
-eligibility and production revocation have not been exercised. The dedicated
+eligibility and production revocation have not been exercised. Current Linux/Windows/macOS
+matrices, including the shared UI validation and task-bar regressions, are linked from
+[#1449](https://github.com/storytold/photocraft/pull/1449). The earlier
 [native account workflow](https://github.com/mighty-programmer/photocraft/actions/runs/37849490335)
 and [optional CPU model workflow](https://github.com/mighty-programmer/photocraft/actions/runs/37849490309)
 both completed successfully on Linux, Windows and macOS at implementation head `8d06074`.
 They perform simulated native-auth/CPU-runtime tests and native compile/lint checks;
-they do not exercise a real OpenAI account or packaged installers. The subsequent publication
-delta adds documentation and the contributor's own name preference; Rust source is unchanged.
+they do not exercise a real OpenAI account or packaged installers. These historical runs are
+not evidence for the newer upstream integration; the current PR links its own runs.
 
 Review the [local-model pack #1199](https://github.com/storytold/photocraft/pull/1199) first, then
 the [dependent draft #1449](https://github.com/storytold/photocraft/pull/1449). The
@@ -56,7 +70,8 @@ for the scoring protocol, failures and limits.
 
 ## Visual checks
 
-Offscreen form layouts were inspected at 1200×800 and 800×600. The task bar is
+The following form screenshots and packaged-app checks were recorded at `8d06074`, before
+this upstream integration. Offscreen form layouts were inspected at 1200×800 and 800×600. The task bar is
 hidden while a prompt form is open, the form scrolls when necessary, and its
 title bar provides dragging. The task bar was also inspected across the five
 themes, with a placed image, resized viewport, and its hidden/restored state.
