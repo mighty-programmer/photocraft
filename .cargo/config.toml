@@ -1,2 +1,7 @@
 [alias]
 xtask = "run -p xtask --"
+
+# Binaries look for ONNX Runtime's Dawn dylib (WebGPU on Metal) beside themselves,
+# and in an app bundle's Frameworks folder.
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-rpath,@executable_path", "-C", "link-arg=-Wl,-rpath,@executable_path/../Frameworks"]

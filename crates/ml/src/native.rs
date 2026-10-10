@@ -214,7 +214,6 @@ impl InferenceBackend for NativeBackend {
         let _guard = self.operation(id)?;
         validate_prompt(id, prompt)?;
         let input = normalize(image, id.info().input_side, ctl)?;
-        self.verify(id, ctl)?;
         let mut loaded = match self.sessions.try_lock() {
             Ok(guard) => guard,
             Err(std::sync::TryLockError::Poisoned(e)) => {
@@ -227,6 +226,9 @@ impl InferenceBackend for NativeBackend {
         };
         if loaded.as_ref().is_none_or(|l| l.id != id) {
             *loaded = None;
+            // Hash every artifact before ONNX Runtime parses it. A loaded session holds its weights
+            // in memory and never re-reads the files, so later runs on it skip the ~2 s re-hash.
+            self.verify(id, ctl)?;
             check(ctl)?;
             let dir = self.directory(id);
             let sessions = match id {
@@ -266,12 +268,57 @@ fn session(path: &Path) -> Result<OnnxSession> {
     // Keeping weights resident is useful, but retaining peak 2048px intermediates in an arena
     // (then allocating a contiguous memory-pattern block on the second run) can exhaust RAM.
     // Prefer releasing temporary buffers over latency: these models are explicitly optional.
-    Ok(OnnxSession::builder()?
-        .with_execution_providers([ort::ep::CPU::default().with_arena_allocator(false).build()])?
+    let cpu = ort::ep::CPU::default().with_arena_allocator(false).build();
+    let providers = match accelerator(path) {
+        Some(gpu) => vec![gpu, cpu],
+        None => vec![cpu],
+    };
+    let mut builder = OnnxSession::builder()?
+        .with_execution_providers(providers)?
         .with_memory_pattern(false)?
         .with_intra_threads(threads)?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .commit_from_file(path)?)
+        .with_optimization_level(GraphOptimizationLevel::Level3)?;
+    // Diagnostics: `PHOTOCRAFT_ML_PROFILE=<dir>` writes ONNX Runtime's per-node
+    // timing profile (node, op type, input shapes, microseconds) there when the session closes.
+    if let (Some(dir), Some(stem)) = (std::env::var_os("PHOTOCRAFT_ML_PROFILE"), path.file_stem()) {
+        builder = builder.with_profiling(Path::new(&dir).join(stem))?;
+    }
+    Ok(builder.commit_from_file(path)?)
+}
+
+/// On macOS the graphics chip runs the models through ONNX Runtime's WebGPU provider
+/// (Dawn on Metal) by default. Measured on the 2048 px BiRefNet cutout it matches the CPU result
+/// exactly and is about 3x faster; the one op it lacks (GridSample) stays on the CPU. If the GPU
+/// can't start, ONNX Runtime skips the provider and everything runs on the CPU, with no error.
+/// `PHOTOCRAFT_ML_EP=cpu` forces the reviewed CPU-only path; `coreml-all|coreml-gpu|coreml-ane`
+/// are kept for measurement only (slower for these models; compiled models cache beside them).
+#[cfg(target_os = "macos")]
+fn accelerator(path: &Path) -> Option<ort::ep::ExecutionProviderDispatch> {
+    use ort::ep::coreml::{ComputeUnits, ModelFormat};
+    use ort::ep::webgpu::{BufferCacheMode, ValidationMode};
+    let choice = std::env::var("PHOTOCRAFT_ML_EP").unwrap_or_default();
+    let units = match choice.as_str() {
+        "cpu" => return None,
+        "coreml-all" => ComputeUnits::All,
+        "coreml-gpu" => ComputeUnits::CPUAndGPU,
+        "coreml-ane" => ComputeUnits::CPUAndNeuralEngine,
+        _ => {
+            let ep = ort::ep::WebGPU::default().with_validation_mode(ValidationMode::Disabled).with_storage_buffer_cache_mode(BufferCacheMode::Bucket);
+            return Some(ep.build());
+        }
+    };
+    let mut ep = ort::ep::CoreML::default().with_model_format(ModelFormat::MLProgram).with_static_input_shapes(true).with_compute_units(units);
+    if let Some(cache) = path.parent().and_then(Path::parent).map(|root| root.join("CoreMLCache"))
+        && fs::create_dir_all(&cache).is_ok()
+    {
+        ep = ep.with_model_cache_dir(cache.display());
+    }
+    Some(ep.build().error_on_failure())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn accelerator(_: &Path) -> Option<ort::ep::ExecutionProviderDispatch> {
+    None
 }
 
 /// ORT supports terminating a run from another thread. The watcher exits at completion or
