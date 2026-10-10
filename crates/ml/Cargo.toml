@@ -25,3 +25,8 @@ ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"], optional = true }
 sha2 = { version = "0.10", optional = true }
 tempfile = { version = "3", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# `webgpu` selects the pinned coreml+webgpu build (Dawn on Metal). Dawn is a dylib:
+# `copy-dylibs` places it beside built binaries, which find it through the rpath in .cargo/config.toml.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["coreml", "webgpu", "copy-dylibs"], optional = true }
